@@ -7,7 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1l01IO8VL5nJsIGTy3eEHkjA6tD741abm
 """
 
-# !pip install networkx
+!pip install networkx
 import networkx as nx
 import matplotlib.pyplot as plt
 import time
@@ -58,11 +58,6 @@ def christofides(graph):
 
   mst = nx.minimum_spanning_tree(graph, weight = 'weight', algorithm="prim") # Create a minimum spanning tree T of G.
 
-  nodes_odd_degree = [] # Let O be the set of vertices with odd degree in T.
-  for v in mst.nodes():
-    if mst.degree[v] % 2:
-      nodes_odd_degree.append(v)
-
   i = graph.subgraph(nodes_odd_degree) #  I is the induced subgraph given by the vertices from O
   matching = nx.min_weight_matching(i, maxcardinality  = True) # Find a minimum-weight perfect matching M in I
   for e in matching:
@@ -83,10 +78,8 @@ def christofides(graph):
 def bnb_recursive(graph, cbound, cweight, level, cpath, closest, visited, res):
   if level == graph.number_of_nodes():
     if cpath[level - 1] != cpath[0]:
-    
       cres = cweight + graph[cpath[level-1]][cpath[0]]['weight']
-      if cres < res:
-          res = cres
+      if cres < res: res = cres
     return res
 
   for v in graph.nodes():
@@ -99,16 +92,14 @@ def bnb_recursive(graph, cbound, cweight, level, cpath, closest, visited, res):
       else: cbound -= ((closest[cpath[level-1]][1] + closest[v][0])/2)
       
       if (cbound + cweight) < res:
-        cpath[level] = v
-        visited[v] = True
+        cpath[level], visited[v] = v, True
         res = bnb_recursive(graph, cbound, cweight, level+1, cpath, closest, visited, res)
       
       cweight -= graph[cpath[level-1]][v]['weight']
       cbound = temp;
   
       visited = [False for i in graph.nodes()]
-      for i in range(0,level):
-          visited[cpath[i]] = True;
+      for i in range(0,level): visited[cpath[i]] = True;
           
   return res
 
