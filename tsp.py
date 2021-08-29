@@ -7,11 +7,11 @@ Original file is located at
     https://colab.research.google.com/drive/1l01IO8VL5nJsIGTy3eEHkjA6tD741abm
 """
 
-!pip install networkx
+# !pip install networkx
 import networkx as nx
 import matplotlib.pyplot as plt
-import math
 import time
+import numpy as np
 import pandas as pd
 
 """
@@ -47,10 +47,9 @@ def get_cost(graph, order):
 
 def twice_around_the_tree(graph):
   mst = nx.minimum_spanning_tree(graph, weight = 'weight', algorithm="prim")
-  
   order = list(nx.dfs_preorder_nodes(mst, 0))
   cost = get_cost(graph, order)
-  # show_graph(mst)
+  
   return cost
 
 """## Algoritmo de Christofides"""
@@ -71,10 +70,11 @@ def christofides(graph):
     
   h = nx.MultiGraph(mst)
   h.add_edges_from(matching) # Combine the edges of M and T to form a connected multigraph H in which each vertex has even degree.
-  circuit = list(nx.eulerian_path(h)) # Form an Eulerian circuit in H.
-  # print(circuit)
-
-  return 0
+  
+  order = list(nx.dfs_preorder_nodes(h, 0))
+  cost = get_cost(graph, order)
+  
+  return cost
 
 """## Branch and Bound
 
@@ -95,10 +95,9 @@ def bnb_recursive(graph, cbound, cweight, level, cpath, closest, visited, res):
       temp = cbound;
       cweight += graph[cpath[level-1]][v]['weight'];
   
-      if level == 1:
-        cbound -= ((closest[cpath[level-1]][0] + closest[v][0])/2)
-      else:
-        cbound -= ((closest[cpath[level-1]][1] + closest[v][0])/2)
+      if level == 1: cbound -= ((closest[cpath[level-1]][0] + closest[v][0])/2)
+      else: cbound -= ((closest[cpath[level-1]][1] + closest[v][0])/2)
+      
       if (cbound + cweight) < res:
         cpath[level] = v
         visited[v] = True
@@ -114,21 +113,16 @@ def bnb_recursive(graph, cbound, cweight, level, cpath, closest, visited, res):
   return res
 
 def branch_and_bound(graph):
-  cbound = 0
-  closest = []
-  cpath = [-1 for i in range(0, graph.number_of_nodes()+1)]
-  visited = [False for i in graph.nodes()]
+  cbound, closest = 0, []
+  cpath, visited = [-1 for i in range(0, graph.number_of_nodes()+1)], [False for i in graph.nodes()]
+  visited[0], cpath[0] = True, 0
 
   for v in graph.nodes():
     min_weight_neighbors = sorted(graph[v].items(), key=lambda e: e[1]["weight"] if e[1]["weight"] != 0  else 1000000000)[:2]     
     closest.append([min_weight_neighbors[0][1]['weight'], min_weight_neighbors[1][1]['weight']])
     cbound += (min_weight_neighbors[0][1]['weight']+ min_weight_neighbors[1][1]['weight'])/2
 
-  
-  visited[0] = True
-  cpath[0] = 0
-
-  return bnb_recursive(graph, cbound, 0, 1, cpath, closest, visited, math.inf)
+  return bnb_recursive(graph, cbound, 0, 1, cpath, closest, visited,  np.Inf)
 
 """## Gerador do grafo geométrico """
 
@@ -140,7 +134,7 @@ def distance(v1, v2, metric):
 
 def generate_graph(metric, amount_of_nodes):
 
-  graph = nx.soft_random_geometric_graph(n = amount_of_nodes, radius  = 10, dim = 2, p_dist = lambda dist: 1, seed = 1)
+  graph = nx.soft_random_geometric_graph(n = amount_of_nodes, radius  = 10, dim = 2, p_dist = lambda dist: 1, seed = 5)
   for i in graph.nodes():
     for j in graph.nodes():
       if i != j:
@@ -154,7 +148,7 @@ def generate_graph(metric, amount_of_nodes):
 def instance_maker(algorithm): 
   df_cost, df_time = {}, {}
 
-  for i in range (4, 8):
+  for i in range (4, 11):
     graph_euclidean, graph_manhattan = generate_graph('euclidean', 2**i), generate_graph('manhattan', 2**i)
 
     if algorithm == 'Twice Around The Tree':
@@ -193,15 +187,19 @@ def instance_maker(algorithm):
   
   return df_cost, df_time
 
-tat_cost, tat_time = instance_maker('Twice Around The Tree')
-print('----------------------------------------------------------------------------------------')
-ch_cost, ch_time = instance_maker('Christofides')
-print('----------------------------------------------------------------------------------------')
-bab_cost, bab_time = instance_maker('Branch and Bound')
-print('----------------------------------------------------------------------------------------')
+def main():  
+  
+  tat_cost, tat_time = instance_maker('Twice Around The Tree')
+  print('----------------------------------------------------------------------------------------')
+  ch_cost, ch_time = instance_maker('Christofides')
+  print('----------------------------------------------------------------------------------------')
+  bab_cost, bab_time = instance_maker('Branch and Bound')
+  print('----------------------------------------------------------------------------------------')
 
-cost = pd.DataFrame({'Twice Around The Tree':tat_cost, 'Christofides':ch_cost, 'Branch and Bound':bab_cost})
-time = pd.DataFrame({'Twice Around The Tree':tat_time, 'Christofides':ch_time, 'Branch and Bound':bab_time})
+  cost = pd.DataFrame({'Twice Around The Tree':tat_cost, 'Christofides':ch_cost, 'Branch and Bound':bab_cost})
+  time = pd.DataFrame({'Twice Around The Tree':tat_time, 'Christofides':ch_time, 'Branch and Bound':bab_time})
 
-cost.to_csv("costs.csv")
-time.to_csv("times.csv")
+  cost.to_csv("costs.csv")
+  time.to_csv("times.csv")
+
+main()
