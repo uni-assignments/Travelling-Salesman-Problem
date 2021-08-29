@@ -11,6 +11,15 @@ Original file is located at
 import networkx as nx
 import matplotlib.pyplot as plt
 import math
+import time
+import pandas as pd
+
+"""
+
+---
+
+## Função para plotar grafos no plano cartesiano 
+"""
 
 def show_graph(graph):
 
@@ -26,6 +35,9 @@ def show_graph(graph):
   
   plt.show()
 
+"""
+## Twice Around The Tree"""
+
 def get_cost(graph, order):
   cost = 0
   for i in range(0, len(order) - 1):   
@@ -40,6 +52,8 @@ def twice_around_the_tree(graph):
   cost = get_cost(graph, order)
   # show_graph(mst)
   return cost
+
+"""## Algoritmo de Christofides"""
 
 def christofides(graph):
 
@@ -58,11 +72,13 @@ def christofides(graph):
   h = nx.MultiGraph(mst)
   h.add_edges_from(matching) # Combine the edges of M and T to form a connected multigraph H in which each vertex has even degree.
   circuit = list(nx.eulerian_path(h)) # Form an Eulerian circuit in H.
-  print(circuit)
+  # print(circuit)
 
+  return 0
 
-graph_euclidean = generate_graph('euclidean', 8)
-print('Euclidean distance:', christofides (graph_euclidean))
+"""## Branch and Bound
+
+"""
 
 def bnb_recursive(graph, cbound, cweight, level, cpath, closest, visited, res):
   if level == graph.number_of_nodes():
@@ -114,6 +130,8 @@ def branch_and_bound(graph):
 
   return bnb_recursive(graph, cbound, 0, 1, cpath, closest, visited, math.inf)
 
+"""## Gerador do grafo geométrico """
+
 def distance(v1, v2, metric):
   if metric == 'euclidean':
     return ((v1[0] - v2[0])**2 + (v1[1] - v2[1])**2)**(1/2)
@@ -122,7 +140,7 @@ def distance(v1, v2, metric):
 
 def generate_graph(metric, amount_of_nodes):
 
-  graph = nx.soft_random_geometric_graph(n = amount_of_nodes, radius  = 10, dim = 2, p_dist = lambda dist: 1, seed = 5)
+  graph = nx.soft_random_geometric_graph(n = amount_of_nodes, radius  = 10, dim = 2, p_dist = lambda dist: 1, seed = 1)
   for i in graph.nodes():
     for j in graph.nodes():
       if i != j:
@@ -131,23 +149,59 @@ def generate_graph(metric, amount_of_nodes):
       
   return graph
 
-def instance_maker(): 
-  for i in range (4, 5):
-    graph_euclidean = generate_graph('euclidean', 2**i)
-    graph_manhattan = generate_graph('manhattan', 2**i)
-    # show_graph(graph_euclidean)
+"""## Gerador de Instâncias"""
 
-    print('\nTwice around the tree', 2**i, 'nodes:')
-    print('Euclidean distance:', twice_around_the_tree(graph_euclidean))
-    print('Manhattan distance:', twice_around_the_tree(graph_manhattan))
+def instance_maker(algorithm): 
+  df_cost, df_time = {}, {}
+
+  for i in range (4, 8):
+    graph_euclidean, graph_manhattan = generate_graph('euclidean', 2**i), generate_graph('manhattan', 2**i)
+
+    if algorithm == 'Twice Around The Tree':
+      init = time.time()
+      cost_e = twice_around_the_tree(graph_euclidean) 
+      period_e = time.time() - init                  
+      init = time.time()
+      cost_m = twice_around_the_tree(graph_manhattan) 
+      period_m = time.time() - init      
     
-    print('\nBranch and Bound', 2**i, 'nodes:')
-    print('Euclidean distance:', branch_and_bound(graph_euclidean))
-    print('Manhattan distance:', branch_and_bound(graph_manhattan))
+    elif algorithm == 'Christofides':
+      init = time.time()
+      cost_e = christofides(graph_euclidean) 
+      period_e = time.time() - init                  
+      init = time.time()
+      cost_m = christofides(graph_manhattan) 
+      period_m = time.time() - init
 
-    # print('\nChristofides ', 2**i, 'nodes:')
-    # print('Euclidean distance:', christofides (graph_euclidean))
-    # print('Manhattan distance:', christofides(graph_manhattan))
-    
+    else:
+      if i >= 5:
+        df_cost[2**i], df_time[2**i] = ["NA", "NA"], ["NA", "NA"]  
+        continue
+      else:   
+        init = time.time()
+        cost_e = branch_and_bound(graph_euclidean) 
+        period_e = time.time() - init                  
+        init = time.time()
+        cost_m = branch_and_bound(graph_manhattan) 
+        period_m = time.time() - init             
 
-instance_maker()
+    df_cost[2**i], df_time[2**i] = ["{:.5f}".format(cost_e), "{:.5f}".format(cost_m)], ["{:.5f}".format(period_e), "{:.5f}".format(period_m)]  
+
+    print('\n', algorithm, 2**i, 'nodes:')
+    print('Euclidean distance:', cost_e)
+    print('Manhattan distance:', cost_m)
+  
+  return df_cost, df_time
+
+tat_cost, tat_time = instance_maker('Twice Around The Tree')
+print('----------------------------------------------------------------------------------------')
+ch_cost, ch_time = instance_maker('Christofides')
+print('----------------------------------------------------------------------------------------')
+bab_cost, bab_time = instance_maker('Branch and Bound')
+print('----------------------------------------------------------------------------------------')
+
+cost = pd.DataFrame({'Twice Around The Tree':tat_cost, 'Christofides':ch_cost, 'Branch and Bound':bab_cost})
+time = pd.DataFrame({'Twice Around The Tree':tat_time, 'Christofides':ch_time, 'Branch and Bound':bab_time})
+
+cost.to_csv("costs.csv")
+time.to_csv("times.csv")
